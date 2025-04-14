@@ -1,6 +1,10 @@
-use std::fs::*;
+mod base;
+mod regex;
 
-use tokenizer::Tokenizer;
+use base::Tokenizer;
+use regex::RegexTokenizer;
+
+use std::fs::*;
 
 fn main() {
     let train_text =
@@ -8,8 +12,8 @@ fn main() {
 
     let sample_text = "Hello've world12345 how's are you!!!?";
 
-    let mut tokenizer = Tokenizer::new();
-    tokenizer.train(&train_text, 32768);
+    let mut tokenizer = RegexTokenizer::new();
+    tokenizer.train(&train_text, 512);
     let enc = tokenizer.encode(sample_text);
     let dec = tokenizer.decode(&enc);
 

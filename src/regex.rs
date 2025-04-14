@@ -1,20 +1,19 @@
+use crate::base::{Token, Tokenizer};
 use fancy_regex::Regex;
 use std::collections::HashMap;
 
 const GPT4_SPLIT_PATTERN: &str = r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+";
 
-type Token = i32;
-
-pub struct Tokenizer {
+pub struct RegexTokenizer {
     merges: HashMap<(Token, Token), Token>,
     vocab: HashMap<Token, Vec<u8>>,
     pattern: String,
     cache: HashMap<String, Vec<Token>>,
 }
 
-impl Tokenizer {
+impl RegexTokenizer {
     pub fn new() -> Self {
-        let mut tokenizer = Tokenizer {
+        let mut tokenizer = RegexTokenizer {
             merges: HashMap::new(),
             vocab: HashMap::new(),
             pattern: GPT4_SPLIT_PATTERN.to_string(),
@@ -86,20 +85,6 @@ impl Tokenizer {
         }
     }
 
-    /// A Tokenizer can encode a string into a list of integers.
-    pub fn encode(&mut self, text: &str) -> Vec<Token> {
-        // split text into chunks of text by categories defined in regex pattern
-        let re = Regex::new(&self.pattern).unwrap();
-        let text_chunks: Vec<_> = re.find_iter(text).map(|m| m.unwrap().as_str()).collect();
-        // all chunks of text are encoded separately, then results are joined
-        let mut ids: Vec<Token> = Vec::new();
-        for chunk in text_chunks {
-            let chunk_ids = self.bpe(chunk);
-            ids.extend(chunk_ids);
-        }
-        ids
-    }
-
     // Given a string, return a list of integers (tokens)
     fn bpe(&mut self, text: &str) -> Vec<Token> {
         if let Some(cached) = self.cache.get(text) {
@@ -142,9 +127,25 @@ impl Tokenizer {
             }
         }
     }
+}
+
+impl Tokenizer for RegexTokenizer {
+    /// A Tokenizer can encode a string into a list of integers.
+    fn encode(&mut self, text: &str) -> Vec<Token> {
+        // split text into chunks of text by categories defined in regex pattern
+        let re = Regex::new(&self.pattern).unwrap();
+        let text_chunks: Vec<_> = re.find_iter(text).map(|m| m.unwrap().as_str()).collect();
+        // all chunks of text are encoded separately, then results are joined
+        let mut ids: Vec<Token> = Vec::new();
+        for chunk in text_chunks {
+            let chunk_ids = self.bpe(chunk);
+            ids.extend(chunk_ids);
+        }
+        ids
+    }
 
     /// A Tokenizer can decode a list of integers into a string.
-    pub fn decode(&self, ids: &[Token]) -> String {
+    fn decode(&self, ids: &[Token]) -> String {
         // Decode the ids into bytes
         let mut text_bytes = Vec::new();
         for &id in ids {
