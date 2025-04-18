@@ -1,3 +1,9 @@
+/*
+Implements the GPT-4 Tokenizer as a wrapper around the RegexTokenizer.
+Note that this is a pretrained tokenizer, which loads the pretrained tokenizer
+from the `cl100k_base` of tiktoken.
+*/
+
 use base64::{engine::general_purpose, Engine as _};
 use fancy_regex::Regex;
 use indexmap::IndexMap;
@@ -36,6 +42,7 @@ fn bpe(
     token: &[u8],
     max_rank: Option<Token>,
 ) -> Vec<Vec<u8>> {
+    // helper function used to reconstruct the merge forest
     let mut parts: Vec<Vec<u8>> = Vec::with_capacity(token.len());
     for &b in token {
         parts.push(vec![b]);
@@ -64,6 +71,9 @@ fn bpe(
 }
 
 fn recover_merges(mergeable_ranks: &IndexMap<Vec<u8>, Token>) -> IndexMap<(Token, Token), Token> {
+    // the `merges` are already the byte sequences in their merged state
+    // so we have to recover the original pairings. We can do this by doing
+    // a small BPE training run on all the tokens, in their order
     let mut merges = IndexMap::new();
     for (token, &rank) in mergeable_ranks {
         if token.len() == 1 {
@@ -90,9 +100,10 @@ pub struct GPT4Tokenizer {
 
 impl GPT4Tokenizer {
     pub fn new() -> Self {
-        // let enc = cl100k_base().unwrap();
         let mergeable_ranks = &GPT4_MERGEABLE_RANKS;
+        // the merges are those of gpt4, but we have to recover them
         let merges = recover_merges(mergeable_ranks);
+        // reconstruct the vocab from the merges
         let mut vocab: IndexMap<Token, Vec<u8>> =
             (0..=255).map(|i| (i as Token, vec![i])).collect();
         for (&(p0, p1), &idx) in &merges {
@@ -177,6 +188,7 @@ impl GPT4Tokenizer {
     }
 
     fn encode_chunk(&self, text_bytes: &[u8]) -> Vec<Token> {
+        // before we start processing bytes, we have to permute them
         let text_bytes: Vec<u8> = text_bytes.iter().map(|&b| self.byte_shuffle[&b]).collect();
         self.encode_chunk_inner(&text_bytes)
     }
