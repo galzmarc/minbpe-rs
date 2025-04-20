@@ -4,12 +4,7 @@ mod gpt4;
 use base::Tokenizer;
 use gpt4::GPT4Tokenizer;
 
-use std::fs::*;
-
 fn main() {
-    let _train_text =
-        read_to_string("./taylorswift.txt").expect("Should have been able to read the file");
-
     let sample_text = "Hello've world12345 how's are you!!!?";
 
     let mut tokenizer = GPT4Tokenizer::new();
